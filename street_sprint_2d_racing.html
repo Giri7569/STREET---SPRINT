@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Street Sprint - 2D Racing</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101820;color:#fff;font-family:system-ui,Arial;display:flex;min-height:100vh;align-items:center;justify-content:center}
+.wrap{width:min(100vw,440px);padding:12px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.title{font-weight:800;font-size:22px;letter-spacing:.5px}.stats{display:flex;gap:12px;font-weight:700}
+canvas{display:block;width:100%;aspect-ratio:360/620;background:#287b42;border:3px solid #dce6ee;border-radius:14px;touch-action:none}
+.controls{display:flex;gap:12px;margin-top:10px}.controls button,.start{flex:1;border:0;border-radius:12px;padding:14px;background:#ffb703;color:#17202a;font-size:18px;font-weight:800}
+.hint{text-align:center;color:#c8d4df;font-size:12px;margin:8px 0}.overlay{position:relative;text-align:center;margin-top:-360px;height:340px;pointer-events:none}.overlay.hidden{visibility:hidden}.panel{display:inline-block;background:#101820eF;border:1px solid #ffffff55;padding:18px;border-radius:16px;max-width:90%;pointer-events:auto}.panel h2{margin:0 0 8px}.panel p{margin:6px 0 14px}.panel button{border:0;border-radius:10px;background:#06d6a0;color:#08251d;padding:12px 22px;font-weight:800;font-size:16px}
+</style>
+</head>
+<body><main class="wrap">
+<div class="top"><div class="title">🏁 STREET SPRINT</div><div class="stats"><span>⭐ <b id="score">0</b></span><span>🪙 <b id="coins">0</b></span></div></div>
+<canvas id="game" width="360" height="620" aria-label="2D car racing game"></canvas>
+<div class="overlay" id="overlay"><div class="panel"><h2 id="headline">Ready to Race?</h2><p id="message">Avoid traffic, collect coins and beat your best score.</p><button id="start">START RACE</button></div></div>
+<div class="controls"><button id="left">⬅ LEFT</button><button id="right">RIGHT ➡</button></div>
+<div class="hint">Use ← → keys or touch the buttons to steer. Avoid the other cars!</div>
+</main>
+<script>
+const c=document.getElementById('game'),ctx=c.getContext('2d');
+const scoreEl=document.getElementById('score'),coinsEl=document.getElementById('coins'),overlay=document.getElementById('overlay');
+const lanes=[105,180,255];let player={lane:1,x:180,y:500},traffic=[],coins=[],score=0,coinCount=0,speed=4,playing=false,frame=0,best=Number(localStorage.getItem('streetSprintBest')||0);
+function rounded(x,y,w,h,r,color){ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
+function car(x,y,color,playerCar=false){rounded(x-17,y-30,34,60,8,color);rounded(x-12,y-22,24,18,4,'#bde0fe');rounded(x-12,y+7,24,13,4,'#243746');ctx.fillStyle='#101820';ctx.fillRect(x-21,y-20,5,13);ctx.fillRect(x+16,y-20,5,13);ctx.fillRect(x-21,y+12,5,13);ctx.fillRect(x+16,y+12,5,13);if(playerCar){ctx.fillStyle='#fff';ctx.fillRect(x-11,y-28,7,4);ctx.fillRect(x+4,y-28,7,4)}}
+function drawRoad(){ctx.fillStyle='#287b42';ctx.fillRect(0,0,360,620);ctx.fillStyle='#353a40';ctx.fillRect(55,0,250,620);ctx.fillStyle='#f8f9fa';ctx.fillRect(55,0,5,620);ctx.fillRect(300,0,5,620);ctx.strokeStyle='#f6f6f6';ctx.lineWidth=4;ctx.setLineDash([28,24]);ctx.lineDashOffset=-frame*speed;ctx.beginPath();ctx.moveTo(138,0);ctx.lineTo(138,620);ctx.moveTo(222,0);ctx.lineTo(222,620);ctx.stroke();ctx.setLineDash([])}
+function draw(){drawRoad();traffic.forEach(t=>car(t.x,t.y,t.color));coins.forEach(o=>{ctx.fillStyle='#ffca3a';ctx.beginPath();ctx.arc(o.x,o.y,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#8a5a00';ctx.font='bold 12px Arial';ctx.fillText('$',o.x-4,o.y+4)});car(player.x,player.y,'#00d6a3',true)}
+function spawn(){if(frame%70===0){let lane=Math.floor(Math.random()*3);traffic.push({x:lanes[lane],y:-40,color:['#ef476f','#4cc9f0','#f77f00','#9b5de5'][Math.floor(Math.random()*4)]})}if(frame%95===0){let lane=Math.floor(Math.random()*3);coins.push({x:lanes[lane],y:-20})}}
+function end(){playing=false;best=Math.max(best,score);localStorage.setItem('streetSprintBest',best);document.getElementById('headline').textContent='Race Over!';document.getElementById('message').textContent=`Score: ${score} · Coins: ${coinCount} · Best: ${best}`;document.getElementById('start').textContent='RACE AGAIN';overlay.classList.remove('hidden')}
+function loop(){if(!playing)return;frame++;speed=4+Math.min(score/180,4);spawn();traffic.forEach(t=>t.y+=speed);coins.forEach(o=>o.y+=speed);traffic=traffic.filter(t=>t.y<680);coins=coins.filter(o=>o.y<660);for(const t of traffic){if(Math.abs(t.x-player.x)<29&&Math.abs(t.y-player.y)<48){draw();end();return}}coins=coins.filter(o=>{if(Math.abs(o.x-player.x)<25&&Math.abs(o.y-player.y)<38){coinCount++;coinsEl.textContent=coinCount;return false}return true});if(frame%6===0){score++;scoreEl.textContent=score}draw();requestAnimationFrame(loop)}
+function move(d){if(playing)player.lane=Math.max(0,Math.min(2,player.lane+d)),player.x=lanes[player.lane]}
+function start(){traffic=[];coins=[];score=0;coinCount=0;frame=0;speed=4;player.lane=1;player.x=lanes[1];scoreEl.textContent='0';coinsEl.textContent='0';playing=true;overlay.classList.add('hidden');draw();requestAnimationFrame(loop)}
+document.getElementById('left').addEventListener('pointerdown',()=>move(-1));document.getElementById('right').addEventListener('pointerdown',()=>move(1));
+document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='a')move(-1);if(e.key==='ArrowRight'||e.key==='d')move(1);if(e.key==='Enter'&&!playing)start()});
+document.getElementById('start').addEventListener('click',start);draw();
+</script></body></html>
